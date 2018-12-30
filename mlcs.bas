@@ -7,29 +7,53 @@ Private	ResponseDiameters(6) as Double
 Private	ResponsePersonCounts(6) as Double
 Private ResponseDiametersIdx as Integer
 
+Private LocalSettings As New com.sun.star.lang.Locale
+Private NumberFormats As Object
+Private Key as long 
 
+	
 Sub Main
 
+End Sub
+
+
+Sub Init
+	
+	NumberFormats = thiscomponent.numberFormats
+	LocalSettings.language = "nl"
+	LocalSettings.country = "be"
+	
+	Key = NumberFormats.queryKey("0,#", LocalSettings , true)
+	If Key = -1 then 
+    	Key = NumberFormats.addNew("0,#", LocalSettings)
+	End If
+	
 End Sub
 
 Rem  Main entry point
 Sub CalcCakeDiameters
 
+	Dim ResultTable as Object
 	Dim FormType as String
 	Dim AskedPersonCount as Integer
 	Dim RecipeName as String
+	Dim I as Integer
+	Dim TotalPrice as Double
+	
+	
+	Init()
 	
 	Doc = ThisComponent
 	MainSheet = Doc.Sheets.getByName("CALC")
-	
 	FormType = MainSheet.getCellRangeByName("VORM").String
 	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
 	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
-	
+
 	Rem clear previous result
 	MainSheet.getCellRangeByName("RESULT").String = ""
 	MainSheet.getCellRangeByName("C13:D22").clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
-	
+	MainSheet.getCellRangeByPosition(1, 45, 6, 100).clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE+com.sun.star.sheet.CellFlags.HARDATTR)
+		
 	Dim Height as Integer
 	Dim Found as Boolean
 	
@@ -41,19 +65,97 @@ Sub CalcCakeDiameters
 		Found = DoCalcCakeDiameters(FormType, Height,  AskedPersonCount)
 	End If
 	
-	DoCalcCakeComposition(RecipeName)
+	TotalPrice = 0
+	
+	If (Found = True) Then
+		For I = 0 To ResponseDiametersIdx
+			Dim Volume as Double
+			If FormType = "ROND" Then
+				Volume = PI() * ResponseDiameters(I) * ResponseDiameters(I) * Height / 4
+			Else 
+				Volume = ResponseDiameters(I) * ResponseDiameters(I) * Height
+			End If
+			
+			TotalPrice = TotalPrice + DoCalcCakeComposition(I, RecipeName, Volume)
+		Next
+	End If
+	
+	ResultTable = MainSheet.getCellRangeByName("RESULTTABLE")	
+	MainSheet.getCellRangeByName("C" + (ResultTable.RangeAddress.StartRow + ResponseDiametersIdx + 4)).String = "Prijs grondstoffen: "
+	MainSheet.getCellRangeByName("D" + (ResultTable.RangeAddress.StartRow + ResponseDiametersIdx + 4)).Value = TotalPrice
+	MainSheet.getCellRangeByName("D" + (ResultTable.RangeAddress.StartRow + ResponseDiametersIdx + 4)).NumberFormat = Key
+	
 		
 End Sub
 
 Rem Search composition of each cake and fill in a table below result table
-Sub DoCalcCakeComposition(RecipeName as String) 
+Rem Returns the price of the cake
+Function DoCalcCakeComposition(CakeIdx as Integer, RecipeName as String, Volume as Double) as Double
 
+	Dim RecipeRangeName as String
 	Dim RecipeSheet as Object
+	Dim Element as Object
+	Dim StartIdx as Integer
+	Dim RecipeRange as Object
+	Dim RecipeRangeArray as Variant
+	Dim DestRange as Object
+	Dim DestRangeArray as Variant
+	Dim ProductCount as Integer
 	
-	RecipeSheet = Doc.Sheets.GetByName(RecipeName)
+	Dim TotalPrice as Double
+	
+	Rem remove all spaces to get range name
+	Dim I as Integer
+	Dim str as String
+	For I = 1 to Len(RecipeName)
+		str = Mid(RecipeName, I, 1) 
+		if (str <> " ") Then
+			RecipeRangeName = RecipeRangeName + str
+		End If
+	Next	
 
+	RecipeSheet =  Doc.Sheets.getByName(RecipeName)
+	RecipeRange = RecipeSheet.GetCellRangeByName(RecipeRangeName)
+	RecipeRangeArray = RecipeRange.DataArray
 
-End Sub
+	ProductCount = UBound(RecipeRangeArray)
+
+	MainSheet.getCellRangeByName("A43").String = "Samenstelling"
+	MainSheet.getCellRangeByName("A43").charWeight = com.sun.star.awt.FontWeight.BOLD
+	
+	DestRange = MainSheet.getCellRangeByPosition(1, 45 + CakeIdx * (ProductCount + 3), 1 + RecipeRange.Columns.Count - 1, 45 + CakeIdx * (ProductCount + 3) + RecipeRange.Rows.Count + 1)	
+	DestRangeArray = DestRange.DataArray
+
+	DestRangeArray(0)(0) = RecipeName + "  D = " + ResponseDiameters(CakeIdx) + " cm"
+	DestRangeArray(0)(1) = ""
+	DestRangeArray(0)(2) = ""
+	DestRangeArray(0)(3) = ""
+
+	DestRangeArray(1)(0) = "Product"
+	DestRangeArray(1)(1) = "Hoeveelheid"
+	DestRangeArray(1)(2) = "Eenheid"
+	DestRangeArray(1)(3) = "Prijs"
+
+	TotalPrice = 0
+	
+	For I = 1 to ProductCount
+		DestRangeArray(I+1)(0) = RecipeRangeArray(I-1)(0)
+		DestRangeArray(I+1)(1) = RecipeRangeArray(I-1)(1) * Volume / RecipeRangeArray(I-1)(3)
+		DestRangeArray(I+1)(2) = RecipeRangeArray(I-1)(2)
+		DestRangeArray(I+1)(3) = RecipeRangeArray(I-1)(4) * Volume / RecipeRangeArray(I-1)(3)
+		TotalPrice = TotalPrice + DestRangeArray(I+1)(3)
+	Next
+
+	DestRange.DataArray = DestRangeArray
+	DestRange.Rows(0).charWeight = com.sun.star.awt.FontWeight.BOLD
+	DestRange.Rows(1).charWeight = com.sun.star.awt.FontWeight.BOLD
+	
+	DestRange.Columns(1).NumberFormat = Key
+	DestRange.Columns(3).NumberFormat = Key
+
+	DoCalcCakeComposition = TotalPrice
+	
+End Function
 
 Rem Fill in the global RespondeDiameters variable
 Rem Returns True if a solution is found
@@ -193,8 +295,8 @@ Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPerson
 				ResultTableValues(I)(1) = ResponsePersonCounts(I)
 			Next
 			
-			ResultTableValues(ResponseDiametersIdx+1)(0) = "Totaal pers.:"
-			ResultTableValues(ResponseDiametersIdx+1)(1) = TotalPersonCount
+			ResultTableValues(ResponseDiametersIdx+2)(0) = "Totaal pers.:"
+			ResultTableValues(ResponseDiametersIdx+2)(1) = TotalPersonCount
 		
 			ResultTable.DataArray = ResultTableValues
 	Else
