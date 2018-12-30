@@ -18,14 +18,14 @@ Sub CalcCakeDiameters
 	Dim FormType as String
 	Dim AskedPersonCount as Integer
 	Dim RecipeName as String
+	Dim I as Integer
 	
 	Doc = ThisComponent
 	MainSheet = Doc.Sheets.getByName("CALC")
-	
 	FormType = MainSheet.getCellRangeByName("VORM").String
 	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
 	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
-	
+
 	Rem clear previous result
 	MainSheet.getCellRangeByName("RESULT").String = ""
 	MainSheet.getCellRangeByName("C13:D22").clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
@@ -41,16 +41,67 @@ Sub CalcCakeDiameters
 		Found = DoCalcCakeDiameters(FormType, Height,  AskedPersonCount)
 	End If
 	
-	DoCalcCakeComposition(RecipeName)
+	If (Found = True) Then
+		For I = 0 To ResponseDiametersIdx
+			Dim Volume as Double
+			If FormType = "ROND" Then
+				Volume = PI() * ResponseDiameters(I) * ResponseDiameters(I) * Height / 4
+			Else 
+				Volume = ResponseDiameters(I) * ResponseDiameters(I) * Height
+			End If
+			
+			DoCalcCakeComposition(I, RecipeName, Volume)
+		Next
+	End If
+	
 		
 End Sub
 
 Rem Search composition of each cake and fill in a table below result table
-Sub DoCalcCakeComposition(RecipeName as String) 
+Sub DoCalcCakeComposition(CakeIdx as Integer, RecipeName as String, Volume as Double) 
 
+	Dim RecipeRangeName as String
 	Dim RecipeSheet as Object
+	Dim Element as Object
+	Dim StartIdx as Integer
+	Dim RecipeRange as Object
+	Dim RecipeRangeArray as Variant
+	Dim DestRange as Object
+	Dim DestRangeArray as Variant
+
 	
-	RecipeSheet = Doc.Sheets.GetByName(RecipeName)
+	Rem remove all spaces to get range name
+	Dim I as Integer
+	Dim str as String
+	For I = 1 to Len(RecipeName)
+		str = Mid(RecipeName, I, 1) 
+		if (str <> " ") Then
+			RecipeRangeName = RecipeRangeName + str
+		End If
+	Next	
+
+	RecipeSheet =  Doc.Sheets.getByName(RecipeName)
+	RecipeRange = RecipeSheet.GetCellRangeByName(RecipeRangeName)
+	RecipeRangeArray = RecipeRange.DataArray
+
+	DestRange = MainSheet.getCellRangeByPosition(1, 42 + CakeIdx * 10, 1 + RecipeRange.Columns.Count - 1, 42 + CakeIdx * 10 + RecipeRange.Rows.Count)	
+	DestRangeArray = DestRange.DataArray
+
+	DestRangeArray(0)(0) = "Product"
+	DestRangeArray(0)(1) = "Hoeveelheid"
+	DestRangeArray(0)(2) = "Eenheid"
+	DestRangeArray(0)(3) = "Prijs"
+
+	Dim ProductCount as Integer
+	ProductCount = UBound(RecipeRangeArray)
+	For I = 1 to ProductCount
+		DestRangeArray(I)(0) = RecipeRangeArray(I-1)(0)
+		DestRangeArray(I)(1) = RecipeRangeArray(I-1)(1) * Volume / RecipeRangeArray(I-1)(3)
+		DestRangeArray(I)(2) = RecipeRangeArray(I-1)(2)
+		DestRangeArray(I)(3) = 0
+	Next
+
+	DestRange.DataArray = DestRangeArray
 
 
 End Sub
