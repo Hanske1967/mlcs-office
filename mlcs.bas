@@ -1,40 +1,59 @@
 Option Explicit
 
-Private	ResponseDiameters(10) as Double
-Private	ResponsePersonCounts(10) as Double
 Private	Doc as Object
 Private	MainSheet as Object
+
+Private	ResponseDiameters(6) as Double
+Private	ResponsePersonCounts(6) as Double
+Private ResponseDiametersIdx as Integer
+
 
 Sub Main
 
 End Sub
 
-
+Rem  Main entry point
 Sub CalcCakeDiameters
 
 	Dim FormType as String
 	Dim AskedPersonCount as Integer
+	Dim RecipeName as String
 	
 	Doc = ThisComponent
 	MainSheet = Doc.Sheets.getByName("CALC")
 	
 	FormType = MainSheet.getCellRangeByName("VORM").String
 	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
+	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
 	
 	Rem clear previous result
-	MainSheet.getCellRangeByName("B4").String = ""
-	MainSheet.getCellRangeByName("B7:C16").clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
+	MainSheet.getCellRangeByName("RESULT").String = ""
+	MainSheet.getCellRangeByName("C13:D22").clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 	
+	Dim Height as Integer
 	Dim Found as Boolean
-	Found = DoCalcCakeDiameters(FormType, 10,  AskedPersonCount)
+	
+	Height = 10
+	Found = DoCalcCakeDiameters(FormType, Height,  AskedPersonCount)
 	
 	If (Found = False) Then
-		Found = DoCalcCakeDiameters(FormType, 12,  AskedPersonCount)
+		Height = 12
+		Found = DoCalcCakeDiameters(FormType, Height,  AskedPersonCount)
 	End If
 	
-
+	DoCalcCakeComposition(RecipeName)
+		
 End Sub
 
+Rem Search composition of each cake and fill in a table below result table
+Sub DoCalcCakeComposition(RecipeName as String) 
+
+	Dim RecipeSheet as Object
+	
+	RecipeSheet = Doc.Sheets.GetByName(RecipeName)
+
+
+End Sub
 
 Rem Fill in the global RespondeDiameters variable
 Rem Returns True if a solution is found
@@ -42,8 +61,6 @@ Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPerson
 
 	Dim RefSheet as Object
 	Dim RefName as String 
-	
-	Dim ResponseDiametersIdx as Integer
 	
 	Dim CurrentDiam as Double
 	Dim CurrentPersonCount as Double
@@ -127,7 +144,6 @@ Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPerson
 	If I > 0 Then
 		ResponseDiameters(ResponseDiametersIdx) = DiameterCell.Value 
 		ResponsePersonCounts(ResponseDiametersIdx) = PersCell.Value 
-		ResponseDiametersIdx = ResponseDiametersIdx + 1
 		TotalPersonCount = PersCell.Value
 		if (TotalPersonCount < AskedPersonCount) Then 
 					
@@ -141,9 +157,9 @@ Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPerson
 				If DiameterCell.Type = com.sun.star.table.CellContentType.VALUE Then
 					If DiameterCell.Value <= NextDiameter Then
 						PersCell = RefSheet.GetCellRangeByName("B" + I)	
+						ResponseDiametersIdx = ResponseDiametersIdx + 1
 						ResponseDiameters(ResponseDiametersIdx) = DiameterCell.Value 
 						ResponsePersonCounts(ResponseDiametersIdx) = PersCell.Value 
-						ResponseDiametersIdx = ResponseDiametersIdx + 1		
 						TotalPersonCount = TotalPersonCount  + PersCell.Value
 						if (TotalPersonCount >= AskedPersonCount) Then 
 							continue = false
@@ -162,22 +178,31 @@ Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPerson
 	End If
 	
 	DoCalcCakeDiameters = (I > 0)
-		
+	
+	Dim ResultTable as Object
+	ResultTable = MainSheet.getCellRangeByName("RESULTTABLE")
+	
 	If I > 0 Then
-			MainSheet.getCellRangeByName("B4").String = "OK met H= " + Height + " cm"
+			MainSheet.getCellRangeByName("RESULT").String = "OK met H= " + Height + " cm"
+
+			Dim ResultTableValues As Variant
+			ResultTableValues = ResultTable.DataArray
+		
+			For I = 0 To ResponseDiametersIdx 
+				ResultTableValues(I)(0) = ResponseDiameters(I)
+				ResultTableValues(I)(1) = ResponsePersonCounts(I)
+			Next
+			
+			ResultTableValues(ResponseDiametersIdx+1)(0) = "Totaal pers.:"
+			ResultTableValues(ResponseDiametersIdx+1)(1) = TotalPersonCount
+		
+			ResultTable.DataArray = ResultTableValues
 	Else
 			Rem No basis found or not enough in multi level to fit for the AskedPersonCount
-			MainSheet.getCellRangeByName("B4").String = "Niet OK met H= " + Height + " cm"
+			MainSheet.getCellRangeByName("RESULT").String = "Niet OK met H= " + Height + " cm"
+			ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 	End If
-	
-	For I = 0 To ResponseDiametersIdx 
-		MainSheet.getCellRangeByName("B" + (7 + I)).Value= ResponseDiameters(I)
-		MainSheet.getCellRangeByName("C" + (7 + I)).Value = ResponsePersonCounts(I)
-	Next
-	
-	MainSheet.getCellRangeByName("B" + (8 + ResponseDiametersIdx)).String = "Totaal:"
-	MainSheet.getCellRangeByName("C" + (8 + ResponseDiametersIdx)).Value = 	TotalPersonCount
+
 
 End Function
-
 
