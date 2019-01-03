@@ -11,11 +11,6 @@ Private LocalSettings As New com.sun.star.lang.Locale
 Private NumberFormats As Object
 Private Key as long 
 
-	
-Sub Main
-
-End Sub
-
 
 Sub Init
 	
@@ -307,4 +302,5 @@ Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPerson
 
 
 End Function
+
 
