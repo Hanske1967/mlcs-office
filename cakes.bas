@@ -3,6 +3,7 @@ Option Explicit
 Private	Doc as Object
 Private	MainSheet as Object
 
+
 Private	ResponseDiameters(6) as Double
 Private	ResponsePersonCounts(6) as Double
 Private ResponseDiametersIdx as Integer
@@ -14,7 +15,7 @@ Private Key as long
 
 Sub Init
 	
-	NumberFormats = thiscomponent.numberFormats
+	NumberFormats = Doc.numberFormats
 	LocalSettings.language = "nl"
 	LocalSettings.country = "be"
 	
@@ -35,10 +36,9 @@ Sub CalcCakeDiameters
 	Dim I as Integer
 	Dim TotalPrice as Double
 	
-	
-	Init()
-	
 	Doc = ThisComponent
+	Init()
+
 	MainSheet = Doc.Sheets.getByName("CALC")
 	FormType = MainSheet.getCellRangeByName("VORM").String
 	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
@@ -49,16 +49,36 @@ Sub CalcCakeDiameters
 	MainSheet.getCellRangeByName("C13:D22").clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 	MainSheet.getCellRangeByPosition(1, 45, 6, 100).clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE+com.sun.star.sheet.CellFlags.HARDATTR)
 		
-	Dim Height as Integer
 	Dim Found as Boolean
+	Dim Continue as Boolean
+	Dim Heights() as  Variant 
+	Dim Coefs() as  Variant
+	Dim HeightIdx, CoefIdx as Integer
+
+ 	Coefs = Array(1, 0.67, 0.5, 0.33)
+	Heights = Array(10, 12)
+
+	HeightIdx = 0
+	CoefIdx = 0
+	Continue = True
+	Found = False
 	
-	Height = 10
-	Found = DoCalcCakeDiameters(FormType, Height,  AskedPersonCount)
-	
-	If (Found = False) Then
-		Height = 12
-		Found = DoCalcCakeDiameters(FormType, Height,  AskedPersonCount)
-	End If
+ 	Do While (Continue And Not(Found))
+		Found = DoCalcCakeDiameters(FormType, Heights(HeightIdx),  AskedPersonCount, Coefs(CoefIdx))
+		
+		If (Found = False) Then
+			CoefIdx = CoefIdx +1
+			Dim maxIdx as Integer
+			maxIdx = UBound(Coefs)
+			If CoefIdx > maxIdx	 Then
+				CoefIdx = 0
+				HeightIdx = HeightIdx + 1
+			End If
+			
+			maxIdx = UBound(Heights)
+			Continue = HeightIdx  <= maxIdx
+		End If
+	Loop
 	
 	TotalPrice = 0
 	
@@ -66,9 +86,9 @@ Sub CalcCakeDiameters
 		For I = 0 To ResponseDiametersIdx
 			Dim Volume as Double
 			If FormType = "ROND" Then
-				Volume = PI() * ResponseDiameters(I) * ResponseDiameters(I) * Height / 4
+				Volume = PI() * ResponseDiameters(I) * ResponseDiameters(I) *  Heights(HeightIdx) / 4
 			Else 
-				Volume = ResponseDiameters(I) * ResponseDiameters(I) * Height
+				Volume = ResponseDiameters(I) * ResponseDiameters(I) *  Heights(HeightIdx)
 			End If
 			
 			TotalPrice = TotalPrice + DoCalcCakeComposition(I, RecipeName, Volume)
@@ -118,7 +138,7 @@ Function DoCalcCakeComposition(CakeIdx as Integer, RecipeName as String, Volume 
 	MainSheet.getCellRangeByName("A43").String = "Samenstelling"
 	MainSheet.getCellRangeByName("A43").charWeight = com.sun.star.awt.FontWeight.BOLD
 	
-	DestRange = MainSheet.getCellRangeByPosition(1, 45 + CakeIdx * (ProductCount + 3), 1 + RecipeRange.Columns.Count - 1, 45 + CakeIdx * (ProductCount + 3) + RecipeRange.Rows.Count + 1)	
+	DestRange = MainSheet.getCellRangeByPosition(1, 45 + CakeIdx * (ProductCount + 5), 1 + RecipeRange.Columns.Count - 1, 45 + CakeIdx * (ProductCount + 5) + RecipeRange.Rows.Count + 1)	
 	DestRangeArray = DestRange.DataArray
 
 	DestRangeArray(0)(0) = RecipeName + "  D = " + ResponseDiameters(CakeIdx) + " cm"
@@ -133,12 +153,12 @@ Function DoCalcCakeComposition(CakeIdx as Integer, RecipeName as String, Volume 
 
 	TotalPrice = 0
 	
-	For I = 1 to ProductCount
-		DestRangeArray(I+1)(0) = RecipeRangeArray(I-1)(0)
-		DestRangeArray(I+1)(1) = RecipeRangeArray(I-1)(1) * Volume / RecipeRangeArray(I-1)(3)
-		DestRangeArray(I+1)(2) = RecipeRangeArray(I-1)(2)
-		DestRangeArray(I+1)(3) = RecipeRangeArray(I-1)(4) * Volume / RecipeRangeArray(I-1)(3)
-		TotalPrice = TotalPrice + DestRangeArray(I+1)(3)
+	For I = 0 to ProductCount
+		DestRangeArray(I+2)(0) = RecipeRangeArray(I)(0)
+		DestRangeArray(I+2)(1) = RecipeRangeArray(I)(1) * Volume / RecipeRangeArray(I)(3)
+		DestRangeArray(I+2)(2) = RecipeRangeArray(I)(2)
+		DestRangeArray(I+2)(3) = RecipeRangeArray(I)(4) * Volume / RecipeRangeArray(I)(3)
+		TotalPrice = TotalPrice + DestRangeArray(I+2)(3)
 	Next
 
 	DestRange.DataArray = DestRangeArray
@@ -154,7 +174,7 @@ End Function
 
 Rem Fill in the global RespondeDiameters variable
 Rem Returns True if a solution is found
-Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPersonCount as Integer)  as Boolean
+Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPersonCount as Integer, Coef as Double)  as Boolean
 
 	Dim RefSheet as Object
 	Dim RefName as String 
@@ -175,33 +195,17 @@ Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPerson
 
 	Rem Find Base cake
 	Rem Try first with a base equals to tthe AskedPersonCount (so just one cake in total)
-	I = 2
-	continue = true
-
-	Do While continue
-		PersCell = RefSheet.GetCellRangeByName("B" + I)
-		If PersCell.Type = com.sun.star.table.CellContentType.VALUE Then
-			If PersCell.Value >= AskedPersonCount  Then
-				DiameterCell = RefSheet.GetCellRangeByName("D" + I)
-				continue = false
-			Else
-				I = I + 1
-			End If
-		Else
-			I = -1
-			continue = false
-		End If
-	Loop
+	I = -1
 	
-	Rem no diameter great enough for the AskedPersonCount, so try with a base for half the AskedPersonCount
-	if i < 0 Then
-		i= 2
+Rem 	If AskedPersonCount < 15 Then
+		Rem For 15 or more persons, always choose multi level cake
+		I = 2
 		continue = true
-	
+		
 		Do While continue
 			PersCell = RefSheet.GetCellRangeByName("B" + I)
 			If PersCell.Type = com.sun.star.table.CellContentType.VALUE Then
-				If PersCell.Value >= AskedPersonCount / 2 Then
+				If PersCell.Value >= AskedPersonCount * Coef  Then
 					DiameterCell = RefSheet.GetCellRangeByName("D" + I)
 					continue = false
 				Else
@@ -212,29 +216,7 @@ Function DoCalcCakeDiameters(FormType as String, Height as Integer,  AskedPerson
 				continue = false
 			End If
 		Loop
-	End If
-	
-	Rem no diameter great enough for the AskedPersonCount/2, so try with a base for a third of the AskedPersonCount
-	if i < 0 Then
-		I = 2
-		continue = true	
-
-		Do While continue
-			PersCell = RefSheet.GetCellRangeByName("B" + I)
-			If PersCell.Type = com.sun.star.table.CellContentType.VALUE Then
-				If PersCell.Value >= AskedPersonCount / 3 Then
-					DiameterCell = RefSheet.GetCellRangeByName("D" + I)
-					continue = false
-				Else
-					I = I + 1
-				End If
-			Else
-				I = -1
-				continue = false
-			End If
-		Loop	
-	
-	End If
+Rem 	End If
 	
 	Rem If a basis is found, then go on for the next cake levels
 	Rem Each level must be 5 cm shorter is diameter than the previous one, for estheatic purpose
