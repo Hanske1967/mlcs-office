@@ -3,6 +3,10 @@ Option Explicit
 Private	Doc as Object
 Private	MainSheet as Object
 
+Private LocalSettings As New com.sun.star.lang.Locale
+Private NumberFormats As Object
+Private Key as long 
+
 Public Type Component
 
 	Label As String
@@ -31,7 +35,8 @@ Public Type ShoppingBasket
 End Type
 
 Public Type CakeSimulation
-
+	
+	ID as Integer
 	Height as Integer
 	FormType as String
 	PersonCount as Integer
@@ -43,6 +48,18 @@ End Type
 
 
 
+Sub Init
+	
+	NumberFormats = Doc.numberFormats
+	LocalSettings.language = "nl"
+	LocalSettings.country = "be"
+	
+	Key = NumberFormats.queryKey("0,#", LocalSettings , true)
+	If Key = -1 then 
+    	Key = NumberFormats.addNew("0,#", LocalSettings)
+	End If
+	
+End Sub
 
 Public Function GetSimulationPersonCount(oSimulation as CakeSimulation)
 
@@ -120,21 +137,9 @@ End Function
 
 Sub ShowCakesSimulation
 
-	Dim LocalSettings As New com.sun.star.lang.Locale
-	Dim NumberFormats As Object
-	Dim Key as Long 
-
 	Doc = ThisComponent
+	init()
 	
-	NumberFormats = Doc.numberFormats
-	LocalSettings.language = "nl"
-	LocalSettings.country = "be"
-	
-	Key = NumberFormats.queryKey("0,#", LocalSettings , true)
-	If Key = -1 then 
-    	Key = NumberFormats.addNew("0,#", LocalSettings)
-	End If
-		
 	Dim CakeSimulations() ' result array, passed as Variant pointer ipo Array value element
 	Dim ResultTable as Object
 	Dim ResultTableRange 
@@ -147,9 +152,9 @@ Sub ShowCakesSimulation
 	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
 	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
 
-	Rem clear previous result
-Rem 	MainSheet.getCellRangeByName("RESULT").String = ""
-	MainSheet.getCellRangeByName("RESULT").clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
+	ResultTable = MainSheet.getCellRangeByName("RESULT")
+	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
+	ResultTableRange = ResultTable.DataArray
 		
 	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName)
 	
@@ -157,24 +162,84 @@ Rem 	MainSheet.getCellRangeByName("RESULT").String = ""
 	SimulationCount = UBound(CakeSimulations)
 	SimulationIdx = 0
 	
-	ResultTable = MainSheet.getCellRangeByName("RESULT")
-	ResultTableRange = ResultTable.DataArray
-	ResultTable.Rows(0).charWeight = com.sun.star.awt.FontWeight.BOLD		
 
 	For SimulationIdx = 0 to SimulationCount
-		ResultTableRange(0)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).Height & " / " & CakeSimulations(SimulationIdx).Coef 
-		ResultTableRange(1)(SimulationIdx) = "# " & GetSimulationPersonCount(CakeSimulations(SimulationIdx))
-		ResultTableRange(2)(SimulationIdx) =GetSimulationPrice(CakeSimulations(SimulationIdx))
-		
-		
+		ResultTableRange(0)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).ID 
+		ResultTableRange(1)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).Height & " cm"
+		ResultTableRange(2)(SimulationIdx) = "# " & GetSimulationPersonCount(CakeSimulations(SimulationIdx))
+		ResultTableRange(3)(SimulationIdx) = GetSimulationPrice(CakeSimulations(SimulationIdx))
+				
 		Dim CakeCount, CakeIdx as Integer
 		CakeCount = UBound(CakeSimulations(SimulationIdx).Cakes)
 		For CakeIdx = 0 to CakeCount
-			ResultTableRange(CakeIdx+4)(SimulationIdx) = CakeSimulations(SimulationIdx).Cakes(CakeIdx).Diameter
+			ResultTableRange(CakeIdx+5)(SimulationIdx) = CakeSimulations(SimulationIdx).Cakes(CakeIdx).Diameter
 		Next
 				
 	Next
 
+	ResultTable.DataArray = ResultTableRange
+
+End Sub
+
+
+Sub ShowCakeComposition()
+
+	Doc = ThisComponent
+	init()
+	
+	Dim CakeSimulations() 
+	Dim CakeSimulation
+	Dim ResultTable as Object
+	Dim ResultTableRange 
+	Dim FormType as String 
+	Dim AskedPersonCount  as Integer 
+	Dim CakeSimulationID as Integer
+	Dim RecipeName  as String 
+
+	MainSheet = Doc.Sheets.getByName("CALC")
+	FormType = MainSheet.getCellRangeByName("VORM").String
+	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
+	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
+	CakeSimulationID = MainSheet.getCellRangeByName("CAKEID").Value
+	
+	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName)
+
+	CakeSimulation = CakeSimulations(CakeSimulationID)	
+
+	ResultTable = MainSheet.getCellRangeByName("SAMENSTELLING")
+	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
+	ResultTableRange = ResultTable.DataArray
+	
+	Dim CakeIdx, CakeCount As Integer
+	Dim ProductIdx, ProductCount As Integer
+	
+	CakeCount = UBound(CakeSimulation.Cakes)
+	
+	For CakeIdx = 0 To CakeCount
+		With CakeSimulation.Cakes(CakeIdx) 
+    		ProductCount = UBound(.Components)
+			Dim x as Integer : x = CakeIdx * (ProductCount + 6)
+			
+    		ResultTableRange(x)(0) = "Cake D: " & .Diameter & " / H: " & .Height 
+    		ResultTable.Rows(x).charWeight = com.sun.star.awt.FontWeight.BOLD
+
+    		ResultTableRange(x+2)(0) = "Product"
+    		ResultTableRange(x+2)(2) = "Hoeveelheid"
+    		ResultTableRange(x+2)(3) = "Eenheid"
+    		
+    		ResultTable.Rows(x+2).charWeight = com.sun.star.awt.FontWeight.BOLD
+		    		    		
+    		For ProductIdx = 0 to ProductCount
+	    		With CakeSimulation.Cakes(CakeIdx).Components(ProductIdx)
+		    		ResultTableRange(x + ProductIdx + 3)(0) = .Label
+		    		ResultTableRange(x + ProductIdx + 3)(2) = .Quantity
+		    		ResultTableRange(x + ProductIdx + 3)(3) = .Unit
+	    		End With
+    		Next
+    	End With
+	Next
+	
+    ResultTable.Columns(2).NumberFormat = Key
 	ResultTable.DataArray = ResultTableRange
 
 End Sub
@@ -209,6 +274,7 @@ Sub DoCalcSimulations(CakeSimulations, FormType as String, AskedPersonCount as I
 		CakesCount = UBound(Simulation.Cakes)
 		If  CakesCount > -1 Then 
 			SimulationIdx = SimulationIdx + 1
+			Simulation.ID = SimulationIdx
 			arCakeSimulations(SimulationIdx) = Simulation
 		End If
 		
