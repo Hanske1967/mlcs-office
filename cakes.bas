@@ -13,6 +13,7 @@ Public Type Component
 	Quantity As Double
 	Unit As String
 	Price As Double
+	Density as Double
 	
 End Type
 
@@ -23,12 +24,12 @@ Public Type Cake
 	Diameter As Double
 	Height as Double
 	PersonCount As Integer
-	Components()  'Array of Component
+	Components()  'Array of component 
 	
 End Type
 
 
-Public Type ShoppingBasket 
+Public Type ShoppingList 
 
 	Components() 
 	
@@ -61,7 +62,45 @@ Sub Init
 	
 End Sub
 
-Public Function GetSimulationPersonCount(oSimulation as CakeSimulation)
+Sub UpdateShoppingBasket(Simulation as CakeSimulation, ShoppingList as ShoppingList)
+
+	Dim ComponentCount as Integer
+	Dim ComponentIdx as Integer
+	Dim CakeIdx as Integer
+	Dim CakeCount as Integer
+
+	CakeCount = UBound(Simulation.Cakes)
+	ComponentCount = UBound(Simulation.Cakes(0).Components)
+
+	Dim Components(ComponentCount) 
+	Dim Component as Component
+	
+	For ComponentIdx = 0 to ComponentCount
+		With Simulation.Cakes(0).Components(ComponentIdx) 
+			Component = new Component
+			Component.	Label = .Label
+			Component.	Quantity = .Quantity 
+			Component.	Unit = .Unit 
+			Component.Price = .Price 
+			Components(ComponentIdx) = Component
+		End With
+	Next
+		
+	If CakeCount > 0	 Then
+		For CakeIdx = 1 to CakeCount
+			For ComponentIdx = 0 to ComponentCount
+				Components(ComponentIdx).	Quantity = Components(ComponentIdx).Quantity + Simulation.Cakes(CakeIdx).Components(ComponentIdx).Quantity 
+				Components(ComponentIdx).Price = Components(ComponentIdx).Price + Simulation.Cakes(CakeIdx).Components(ComponentIdx).Price 
+			Next
+		Next
+	End If
+	
+
+	ShoppingList.Components = Components
+
+End Sub
+
+Public Function GetSimulationPersonCount(oSimulation as CakeSimulation) as Integer
 
 	Dim TotalPers as Integer
 	TotalPers = 0
@@ -82,7 +121,7 @@ Public Function GetSimulationPersonCount(oSimulation as CakeSimulation)
 End Function
 
 
-Public Function GetSimulationPrice(oSimulation as CakeSimulation)
+Public Function GetSimulationPrice(oSimulation as CakeSimulation) as Double
 
 	Dim TotalPrice as Double
 	TotalPrice = 0
@@ -112,9 +151,7 @@ Public Function GetCakePrice(oCake as Cake) as Double
 	CompCount = UBound(oCake.Components)
 	
 	For I = 0 To CompCount
-	Dim Component as Component
-		Component = oCake.Components(I)
-		TotalPrice = TotalPrice + Component.Price
+		TotalPrice = TotalPrice + oCake.Components(I).Price
 	Next
 	
 	GetCakePrice = TotalPrice 
@@ -135,12 +172,14 @@ Public Function GetCakeVolume(oCake as Cake) as Double
 
 End Function
 
+
 Sub ShowCakesSimulation
 
 	Doc = ThisComponent
 	init()
 	
-	Dim CakeSimulations() ' result array, passed as Variant pointer ipo Array value element
+	Dim CakeSimulations() 
+	
 	Dim ResultTable as Object
 	Dim ResultTableRange 
 	Dim FormType as String 
@@ -152,7 +191,7 @@ Sub ShowCakesSimulation
 	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
 	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
 
-	ResultTable = MainSheet.getCellRangeByName("RESULT")
+	ResultTable = MainSheet.getCellRangeByName("SIMULATIONS")
 	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 	ResultTableRange = ResultTable.DataArray
 		
@@ -181,8 +220,152 @@ Sub ShowCakesSimulation
 
 End Sub
 
+Function GetFillings()
 
-Sub ShowCakeComposition()
+	Dim Components()
+	Dim Fillins(100) as Component
+	Dim Idx, Count , Start as Integer
+	
+	Components = DoGetFillings("Vulling")
+	Count = UBound(Components)
+	Start = 0
+	
+	For Idx = 0 to Count
+		Fillins(Start + Idx) = Components(Idx)
+	Next	
+	Start = Start + Count + 1
+	
+	Components = DoGetFillings("Afsmeren")
+	Count = UBound(Components)
+	
+	For Idx = 0 to Count
+		Fillins(Start + Idx) = Components(Idx)
+	Next	
+	Start = Start + Count + 1
+
+	Components = DoGetFillings("Bekleding")
+	Count = UBound(Components)
+	
+	For Idx = 0 to Count
+		Fillins(Start + Idx) = Components(Idx)
+	Next	
+	Start = Start + Count
+	
+	Dim Result(Start)
+	For Idx = 0 to Start 
+		Result(Idx) = Fillins(Idx)
+	Next
+
+	GetFillings = Result
+
+End Function
+
+Rem Returns an array of all fillingfs as Component
+Function DoGetFillings(Name as String) 
+
+	Doc = ThisComponent
+	Dim FillingSheet as Object
+	Dim FillingSheetData
+	FillingSheet = Doc.Sheets.getByName(Name)
+	FillingSheetData = FillingSheet.GetCellRangeByName("A2:D20").DataArray
+			
+	Dim Components(20) as Component
+	Dim 	Component as Component
+	Dim RowIdx as Integer : RowIdx = 0
+	Dim continue as Boolean : continue = True
+	
+	Do While Continue
+		Component = New Component
+		Component.Label = FillingSheetData(RowIdx)(0)
+		Component.Quantity =FillingSheetData(RowIdx)(1)
+		Component.Price = FillingSheetData(RowIdx)(2)
+		Component.Density = FillingSheetData(RowIdx)(3)
+		Component.	Unit = "g"
+		
+		Components(RowIdx) = Component
+		RowIdx = RowIdx + 1
+		
+		Continue =  (FillingSheetData(RowIdx)(0) <> "")
+	Loop
+	RowIdx = RowIdx - 1
+	
+	Dim Result(RowIdx)
+	Dim I as Integer : I = 0
+	
+	For I = 0 To RowIdx
+		Result(I) = Components(I)
+	Next
+		
+	DoGetFillings = Result
+
+End Function
+
+Function GetFilling(Components(), Name as String, Surface As Double) 
+
+	Dim Component as Component
+	Dim CompCount as Integer
+	Dim CompIdx as Integer
+	
+	CompCount = UBound(Components)
+	For CompIdx = 0 To CompCount
+		If (Components(CompIdx).Label = Name) Then
+			Component = Components(CompIdx)
+		End If
+	Next
+	
+	Dim Result
+	
+	Result = new Component
+	Result.Label = Component.Label
+	Result.Quantity = Component.Quantity * Surface * Component.Density
+	Result.Unit = Component.Unit
+	Result.Price = Component.Price * Result.Quantity
+	
+	GetFilling = Result
+
+End Function
+
+Sub FillCompositionTable()
+
+	Dim CakeSimulations() 
+	Dim CakeSimulation
+	Dim ResultTable as Object
+	Dim ResultTableRange 
+	
+	Dim FormType as String 
+	Dim AskedPersonCount  as Integer 
+	Dim RecipeName  as String 
+	Dim CakeSimulationID as Integer	
+
+	Doc = ThisComponent
+
+	MainSheet = Doc.Sheets.getByName("CALC")
+	FormType = MainSheet.getCellRangeByName("VORM").String
+	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
+	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
+	CakeSimulationID = MainSheet.getCellRangeByName("CAKEID").Value
+		
+	ResultTable = MainSheet.getCellRangeByName("SAMENSTELLINGIDS")
+	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
+	ResultTableRange = ResultTable.DataArray
+	
+	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName)
+	CakeSimulation = CakeSimulations(CakeSimulationID)
+	
+	Dim CakeIdx, CakeCount As Integer
+	CakeCount = UBound(CakeSimulation.Cakes)
+	CakeIdx = 0
+
+	For CakeIdx = 0 to CakeCount
+		ResultTableRange(CakeIdx)(0) = "D" & CakeSimulation.Cakes(CakeIdx).Diameter 
+	Next
+	
+	ResultTable.DataArray = ResultTableRange
+
+End Sub
+
+
+Sub ShowShoppingList()
 
 	Doc = ThisComponent
 	init()
@@ -206,7 +389,10 @@ Sub ShowCakeComposition()
 
 	CakeSimulation = CakeSimulations(CakeSimulationID)	
 
-	ResultTable = MainSheet.getCellRangeByName("SAMENSTELLING")
+
+	' Samenvatting
+
+	ResultTable = MainSheet.getCellRangeByName("PERCAKE")
 	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 	ResultTableRange = ResultTable.DataArray
 	
@@ -226,6 +412,7 @@ Sub ShowCakeComposition()
     		ResultTableRange(x+2)(0) = "Product"
     		ResultTableRange(x+2)(2) = "Hoeveelheid"
     		ResultTableRange(x+2)(3) = "Eenheid"
+    		ResultTableRange(x+2)(4) = "Prijs"
     		
     		ResultTable.Rows(x+2).charWeight = com.sun.star.awt.FontWeight.BOLD
 		    		    		
@@ -234,8 +421,42 @@ Sub ShowCakeComposition()
 		    		ResultTableRange(x + ProductIdx + 3)(0) = .Label
 		    		ResultTableRange(x + ProductIdx + 3)(2) = .Quantity
 		    		ResultTableRange(x + ProductIdx + 3)(3) = .Unit
+		    		ResultTableRange(x + ProductIdx + 3)(4) = .Price
 	    		End With
     		Next
+
+    	End With
+	Next
+	
+    ResultTable.Columns(2).NumberFormat = Key
+	ResultTable.DataArray = ResultTableRange
+
+
+	' Shopping List
+
+	Dim ShoppingList as New ShoppingList
+	UpdateShoppingBasket(CakeSimulation, ShoppingList)
+
+	ResultTable = MainSheet.getCellRangeByName("SHOPPINGLIST")
+	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
+	ResultTableRange = ResultTable.DataArray
+	
+	Dim ComponentIdx, ComponentCount As Integer
+	ComponentCount = UBound(ShoppingList.Components)
+	
+	ResultTableRange(0)(0) = "Product"
+	ResultTableRange(0)(2) = "Hoeveelheid"
+	ResultTableRange(0)(3) = "Eenheid"
+	ResultTableRange(0)(4) = "Prijs"
+	
+	ResultTable.Rows(0).charWeight = com.sun.star.awt.FontWeight.BOLD
+
+	For ComponentIdx = 0 To ComponentCount
+		With ShoppingList.Components(ComponentIdx) 
+    		ResultTableRange(ComponentIdx + 2)(0) = .Label
+    		ResultTableRange(ComponentIdx + 2)(2) = .Quantity
+    		ResultTableRange(ComponentIdx + 2)(3) = .Unit
+    		ResultTableRange(ComponentIdx + 2)(4) = .Price
     	End With
 	Next
 	
@@ -324,7 +545,8 @@ Sub DoCalcSimulation(CakeSimulation)
 End Sub
 
 Rem Search composition of each cake and fill in a table below result table
-Rem Update Cake array
+Rem Then take in account all filling and finition layers
+Rem Returns Cake components updated
 Sub DoCalcCakeComposition(Cake, RecipeName as String)  
 
 	Dim RecipeRangeName as String
@@ -333,7 +555,6 @@ Sub DoCalcCakeComposition(Cake, RecipeName as String)
 	Dim StartIdx as Integer
 	Dim RecipeRange as Object
 	Dim RecipeRangeArray
-	Dim DestRange as Object
 	Dim ProductCount as Integer
 	
 	Rem remove all spaces to get range name
@@ -354,7 +575,7 @@ Sub DoCalcCakeComposition(Cake, RecipeName as String)
 	Dim Volume as Double
 	Volume = GetCakeVolume(Cake)
 	
-	Dim oComponents(ProductCount)
+	Dim oComponents(ProductCount+5)
 
 	For I = 0 to ProductCount
 	    Dim Component as new Component
@@ -365,7 +586,55 @@ Sub DoCalcCakeComposition(Cake, RecipeName as String)
 		oComponents(i) = Component
 	Next
 
-	Cake.Components = oComponents
+	' Fill in all values found in SAMENSTELLING
+	Dim FillingRange as Object
+	Dim FillingRangeRangeArray
+
+	MainSheet = Doc.Sheets.getByName("CALC")
+	FillingRange = MainSheet.GetCellRangeByName("SAMENSTELLING")
+	FillingRangeRangeArray = FillingRange.DataArray	
+	
+	' Find cake row
+	Dim RowIdx as Integer : RowIdx = -1
+	Dim found as boolean : found = False
+	Dim continue as boolean : continue = True
+	str = "D" & Cake.Diameter
+	
+	Do While (NOT(found) AND Continue) 
+		RowIdx = RowIdx + 1
+		Continue = (FillingRangeRangeArray(RowIdx)(0) <> "")
+		found = (FillingRangeRangeArray(RowIdx)(0) = str)
+	Loop
+	
+	If found Then
+		Dim Components
+		Components = GetFillings()
+		Dim Surface as Double
+
+		Surface = PI() * Cake.Diameter * Cake.Diameter / 4
+		' Filling 
+		For I = 1 To 3 
+			If (FillingRangeRangeArray(RowIdx)(I) <> "") Then
+				ProductCount = ProductCount + 1
+				oComponents(ProductCount) =  GetFilling(Components, FillingRangeRangeArray(RowIdx)(I), Surface)
+			End If
+		Next
+			
+		Surface = Surface + PI() * Cake.Diameter * Cake.Height
+		' Surface
+		For I = 4 To 5 
+			If (FillingRangeRangeArray(RowIdx)(I) <> "") Then
+				ProductCount = ProductCount + 1
+				oComponents(ProductCount) =  GetFilling(Components, FillingRangeRangeArray(RowIdx)(I), Surface)
+			End If
+		Next
+	End If
+
+	Dim CakeComponents(ProductCount) 
+	For I = 0 to ProductCount
+		CakeComponents(I) = oComponents(I)
+	Next
+	Cake.Components = CakeComponents
 	
 End Sub
 
