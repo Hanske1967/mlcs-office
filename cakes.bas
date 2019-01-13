@@ -248,37 +248,48 @@ Sub ShowCakesSimulation
 
 End Sub
 
-Function GetFillings()
+Function GetFillings(FillName as String)
 
 	Dim Components()
 	Dim Fillins(100) as Component
 	Dim Idx, Count , Start as Integer
 	
-	Components = DoGetFillings("Vulling")
-	Count = UBound(Components)
-	Start = 0
+	If FillName = "" Then 
+		Components = DoGetFillings("Vulling")
+		Count = UBound(Components)
+		Start = 0
+		
+		For Idx = 0 to Count
+			Fillins(Start + Idx) = Components(Idx)
+		Next	
+		Start = Start + Count + 1
+		
+		Components = DoGetFillings("Afsmeren")
+		Count = UBound(Components)
+		
+		For Idx = 0 to Count
+			Fillins(Start + Idx) = Components(Idx)
+		Next	
+		Start = Start + Count + 1
 	
-	For Idx = 0 to Count
-		Fillins(Start + Idx) = Components(Idx)
-	Next	
-	Start = Start + Count + 1
-	
-	Components = DoGetFillings("Afsmeren")
-	Count = UBound(Components)
-	
-	For Idx = 0 to Count
-		Fillins(Start + Idx) = Components(Idx)
-	Next	
-	Start = Start + Count + 1
-
-	Components = DoGetFillings("Bekleding")
-	Count = UBound(Components)
-	
-	For Idx = 0 to Count
-		Fillins(Start + Idx) = Components(Idx)
-	Next	
-	Start = Start + Count
-	
+		Components = DoGetFillings("Bekleding")
+		Count = UBound(Components)
+		
+		For Idx = 0 to Count
+			Fillins(Start + Idx) = Components(Idx)
+		Next	
+		Start = Start + Count
+	Else
+		Components = DoGetFillings(FillName)
+		Count = UBound(Components)
+		Start = 0
+		
+		For Idx = 0 to Count
+			Fillins(Start + Idx) = Components(Idx)
+		Next	
+		Start = Count
+	End If
+		
 	Dim Result(Start)
 	For Idx = 0 to Start 
 		Result(Idx) = Fillins(Idx)
@@ -636,9 +647,9 @@ Sub DoCalcCakeComposition(Cake, RecipeName as String)
 	
 	If found Then
 		Dim Components
-		Components = GetFillings()
 		Dim Surface as Double
 
+		Components = GetFillings("Vulling")
 		Surface = GetCakeTopSurface(Cake)
 		' Filling 
 		For I = 1 To 3 
@@ -648,14 +659,23 @@ Sub DoCalcCakeComposition(Cake, RecipeName as String)
 			End If
 		Next
 			
+		Components = GetFillings("Afsmeren")
 		Surface =  GetCakeOveralSurface(Cake)
 		' Surface
-		For I = 4 To 5 
-			If (FillingRangeRangeArray(RowIdx)(I) <> "") Then
-				ProductCount = ProductCount + 1
-				oComponents(ProductCount) =  GetFilling(Components, FillingRangeRangeArray(RowIdx)(I), Surface)
-			End If
-		Next
+		I = 4
+		If (FillingRangeRangeArray(RowIdx)(I) <> "") Then
+			ProductCount = ProductCount + 1
+			oComponents(ProductCount) =  GetFilling(Components, FillingRangeRangeArray(RowIdx)(I), Surface)
+		End If
+
+		Components = GetFillings("Bekleding")
+		' Surface
+		I = 5
+		If (FillingRangeRangeArray(RowIdx)(I) <> "") Then
+			ProductCount = ProductCount + 1
+			oComponents(ProductCount) =  GetFilling(Components, FillingRangeRangeArray(RowIdx)(I), Surface)
+		End If
+
 	End If
 
 	Dim CakeComponents(ProductCount) 
