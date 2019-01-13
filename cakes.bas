@@ -173,6 +173,34 @@ Public Function GetCakeVolume(oCake as Cake) as Double
 End Function
 
 
+Public Function GetCakeTopSurface(oCake as Cake) as Double 
+
+	Dim Surface as Double
+	If oCake.FormType = "ROND" Then
+		Surface = PI() * oCake.Diameter * oCake.Diameter / 4 
+	Else 
+		Surface = oCake.Diameter * oCake.Diameter 
+	End If
+	
+	GetCakeTopSurface = Surface
+
+End Function
+
+
+Public Function GetCakeOveralSurface(oCake as Cake) as Double 
+
+	Dim Surface as Double
+	If oCake.FormType = "ROND" Then
+		Surface = PI() * oCake.Diameter * oCake.Diameter / 4 + PI() * oCake.Diameter * oCake.Height
+	Else 
+		Surface = oCake.Diameter * oCake.Diameter + 4 *  oCake.Diameter * oCake.Height
+	End If
+	
+	GetCakeOveralSurface = Surface
+
+End Function
+
+
 Sub ShowCakesSimulation
 
 	Doc = ThisComponent
@@ -611,7 +639,7 @@ Sub DoCalcCakeComposition(Cake, RecipeName as String)
 		Components = GetFillings()
 		Dim Surface as Double
 
-		Surface = PI() * Cake.Diameter * Cake.Diameter / 4
+		Surface = GetCakeTopSurface(Cake)
 		' Filling 
 		For I = 1 To 3 
 			If (FillingRangeRangeArray(RowIdx)(I) <> "") Then
@@ -620,7 +648,7 @@ Sub DoCalcCakeComposition(Cake, RecipeName as String)
 			End If
 		Next
 			
-		Surface = Surface + PI() * Cake.Diameter * Cake.Height
+		Surface =  GetCakeOveralSurface(Cake)
 		' Surface
 		For I = 4 To 5 
 			If (FillingRangeRangeArray(RowIdx)(I) <> "") Then
