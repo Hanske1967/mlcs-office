@@ -472,19 +472,19 @@ Sub ShowShoppingList()
 	Dim ComponentIdx, ComponentCount As Integer
 	ComponentCount = UBound(ShoppingList.Components)
 	
-	ResultTableRange(0)(0) = "Product"
-	ResultTableRange(0)(2) = "Hoeveelheid"
-	ResultTableRange(0)(3) = "Eenheid"
-	ResultTableRange(0)(4) = "Prijs"
+'	ResultTableRange(0)(0) = "Product"
+'	ResultTableRange(0)(2) = "Hoeveelheid"
+'	ResultTableRange(0)(3) = "Eenheid"
+'	ResultTableRange(0)(4) = "Prijs"
 	
-	ResultTable.Rows(0).charWeight = com.sun.star.awt.FontWeight.BOLD
+'	ResultTable.Rows(0).charWeight = com.sun.star.awt.FontWeight.BOLD
 
 	For ComponentIdx = 0 To ComponentCount
 		With ShoppingList.Components(ComponentIdx) 
-    		ResultTableRange(ComponentIdx + 2)(0) = .Label
-    		ResultTableRange(ComponentIdx + 2)(2) = .Quantity
-    		ResultTableRange(ComponentIdx + 2)(3) = .Unit
-    		ResultTableRange(ComponentIdx + 2)(4) = .Price
+    		ResultTableRange(ComponentIdx)(0) = .Label
+    		ResultTableRange(ComponentIdx)(2) = .Quantity
+    		ResultTableRange(ComponentIdx)(3) = .Unit
+    		ResultTableRange(ComponentIdx)(4) = .Price
     	End With
 	Next
 	
@@ -707,8 +707,9 @@ Sub DoCalcCakeDiameters(Cakes(), FormType as String, Height as Integer,  AskedPe
 	
 	Rem If a basis is found, then go on for the next cake levels
 	Rem Each level must be 5 cm shorter is diameter than the previous one, for estheatic purpose
+    Dim CakeIdx as Integer
+
 	If I > 0 Then
-	    Dim cakeIdx as Integer
 	    CakeIdx = 0    
 	    
 	    Dim aCake as Cake
