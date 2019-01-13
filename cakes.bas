@@ -43,6 +43,12 @@ Public Type CakeSimulation
 	PersonCount as Integer
 	Coef as Double
 	Recipe as String
+	Vulling1 as String
+	Vulling2 as String
+	Vulling3 as String
+	Afsmeren as String
+	Bekleding as String
+	
 	Cakes()  'Array of Component
 
 End Type
@@ -213,17 +219,23 @@ Sub ShowCakesSimulation
 	Dim FormType as String 
 	Dim AskedPersonCount  as Integer 
 	Dim RecipeName  as String 
+	Dim Vulling1, Vulling2, Vulling3, Bekleding, Afsmeren as String
 
 	MainSheet = Doc.Sheets.getByName("CALC")
 	FormType = MainSheet.getCellRangeByName("VORM").String
 	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
 	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
+	Vulling1 = MainSheet.getCellRangeByName("VULLING1").String
+	Vulling2 = MainSheet.getCellRangeByName("VULLING2").String
+	Vulling3 = MainSheet.getCellRangeByName("VULLING3").String
+	Bekleding = MainSheet.getCellRangeByName("BEKLEDING").String
+	Afsmeren = MainSheet.getCellRangeByName("AFSMEREN").String
 
 	ResultTable = MainSheet.getCellRangeByName("SIMULATIONS")
 	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 	ResultTableRange = ResultTable.DataArray
 		
-	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName)
+	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName, Vulling1, Vulling2, Vulling3, Afsmeren, Bekleding)
 	
 	Dim SimulationIdx, SimulationCount As Integer
 	SimulationCount = UBound(CakeSimulations)
@@ -298,6 +310,7 @@ Function GetFillings(FillName as String)
 	GetFillings = Result
 
 End Function
+
 
 Rem Returns an array of all fillingfs as Component
 Function DoGetFillings(Name as String) 
@@ -375,6 +388,7 @@ Sub FillCompositionTable()
 	Dim AskedPersonCount  as Integer 
 	Dim RecipeName  as String 
 	Dim CakeSimulationID as Integer	
+	Dim Vulling1, Vulling2, Vulling3, Bekleding, Afsmeren as String	
 
 	Doc = ThisComponent
 
@@ -383,12 +397,17 @@ Sub FillCompositionTable()
 	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
 	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
 	CakeSimulationID = MainSheet.getCellRangeByName("CAKEID").Value
+	Vulling1 = MainSheet.getCellRangeByName("VULLING1").String
+	Vulling2 = MainSheet.getCellRangeByName("VULLING2").String
+	Vulling3 = MainSheet.getCellRangeByName("VULLING3").String
+	Bekleding = MainSheet.getCellRangeByName("BEKLEDING").String
+	Afsmeren = MainSheet.getCellRangeByName("AFSMEREN").String	
 		
-	ResultTable = MainSheet.getCellRangeByName("SAMENSTELLINGIDS")
+	ResultTable = MainSheet.getCellRangeByName("SAMENSTELLING")
 	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 	ResultTableRange = ResultTable.DataArray
 	
-	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName)
+	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName, Vulling1, Vulling2, Vulling3, Afsmeren, Bekleding)
 	CakeSimulation = CakeSimulations(CakeSimulationID)
 	
 	Dim CakeIdx, CakeCount As Integer
@@ -397,6 +416,13 @@ Sub FillCompositionTable()
 
 	For CakeIdx = 0 to CakeCount
 		ResultTableRange(CakeIdx)(0) = "D" & CakeSimulation.Cakes(CakeIdx).Diameter 
+
+		ResultTableRange(CakeIdx)(1) = Vulling1
+		ResultTableRange(CakeIdx)(2) = Vulling2
+		ResultTableRange(CakeIdx)(3) = Vulling3
+		ResultTableRange(CakeIdx)(4) = Afsmeren
+		ResultTableRange(CakeIdx)(5) = Bekleding
+
 	Next
 	
 	ResultTable.DataArray = ResultTableRange
@@ -417,14 +443,20 @@ Sub ShowShoppingList()
 	Dim AskedPersonCount  as Integer 
 	Dim CakeSimulationID as Integer
 	Dim RecipeName  as String 
+	Dim Vulling1, Vulling2, Vulling3, Bekleding, Afsmeren as String	
 
 	MainSheet = Doc.Sheets.getByName("CALC")
 	FormType = MainSheet.getCellRangeByName("VORM").String
 	AskedPersonCount = MainSheet.getCellRangeByName("PERSONEN").Value
 	RecipeName = MainSheet.getCellRangeByName("RECIPE").String
 	CakeSimulationID = MainSheet.getCellRangeByName("CAKEID").Value
+	Vulling1 = MainSheet.getCellRangeByName("VULLING1").String
+	Vulling2 = MainSheet.getCellRangeByName("VULLING2").String
+	Vulling3 = MainSheet.getCellRangeByName("VULLING3").String
+	Bekleding = MainSheet.getCellRangeByName("BEKLEDING").String
+	Afsmeren = MainSheet.getCellRangeByName("AFSMEREN").String	
 	
-	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName)
+	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName,  Vulling1, Vulling2, Vulling3, Afsmeren, Bekleding)
 
 	CakeSimulation = CakeSimulations(CakeSimulationID)	
 
@@ -505,8 +537,7 @@ Sub ShowShoppingList()
 End Sub
 
 
-Sub DoCalcSimulations(CakeSimulations, FormType as String, AskedPersonCount as Integer, RecipeName as String)
-
+Sub DoCalcSimulations(CakeSimulations, FormType as String, AskedPersonCount as Integer, RecipeName as String, Vulling1 as String, Vulling2 as String, Vulling3 as String, Afsmeren as String, Bekleding as String)
 	Dim arCakeSimulations(8) '  working array of CakeSimulation.  Some last elements may be null
 
 	Dim Heights() : Heights = Array(10, 12)
@@ -526,6 +557,11 @@ Sub DoCalcSimulations(CakeSimulations, FormType as String, AskedPersonCount as I
 		Simulation.Height = Heights(HeightIdx)
 		Simulation.FormType = FormType 
 		Simulation.PersonCount = AskedPersonCount
+		Simulation.Vulling1 = Vulling1
+		Simulation.Vulling2 = Vulling2
+		Simulation.Vulling3 = Vulling3
+		Simulation.Afsmeren = Afsmeren
+		Simulation.Bekleding = Bekleding
 		Simulation.Coef = Coefs(CoefIdx) 
 			 	
 		DoCalcSimulation(Simulation)
@@ -577,7 +613,7 @@ Sub DoCalcSimulation(CakeSimulation)
 
 		Dim CakeIdx as Integer
 		For CakeIdx = 0 to CakesCount 
-			DoCalcCakeComposition(Cakes(CakeIdx), CakeSimulation.Recipe)
+			DoCalcCakeComposition(Cakes(CakeIdx), CakeSimulation)
 		Next
 	End If
 			
@@ -586,7 +622,7 @@ End Sub
 Rem Search composition of each cake and fill in a table below result table
 Rem Then take in account all filling and finition layers
 Rem Returns Cake components updated
-Sub DoCalcCakeComposition(Cake, RecipeName as String)  
+Sub DoCalcCakeComposition(Cake, Simulation as Simulation)  
 
 	Dim RecipeRangeName as String
 	Dim RecipeSheet as Object
@@ -599,14 +635,14 @@ Sub DoCalcCakeComposition(Cake, RecipeName as String)
 	Rem remove all spaces to get range name
 	Dim I as Integer
 	Dim str as String
-	For I = 1 to Len(RecipeName)
-		str = Mid(RecipeName, I, 1) 
+	For I = 1 to Len(Simulation.Recipe)
+		str = Mid(Simulation.Recipe, I, 1) 
 		if (str <> " ") Then
 			RecipeRangeName = RecipeRangeName + str
 		End If
 	Next	
 
-	RecipeSheet =  Doc.Sheets.getByName(RecipeName)
+	RecipeSheet =  Doc.Sheets.getByName(Simulation.Recipe)
 	RecipeRange = RecipeSheet.GetCellRangeByName(RecipeRangeName)
 	RecipeRangeArray = RecipeRange.DataArray
 	ProductCount = UBound(RecipeRangeArray)
