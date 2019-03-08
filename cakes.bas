@@ -76,18 +76,25 @@ Sub UpdateShoppingBasket(Simulation as CakeSimulation, ShoppingList as ShoppingL
 	Dim CakeCount as Integer
 
 	CakeCount = UBound(Simulation.Cakes)
-	ComponentCount = UBound(Simulation.Cakes(0).Components)
+	Dim zeCake as Cake
+	zeCake = Simulation.Cakes(0)
+	ComponentCount = UBound(zeCake.Components)
 
 	Dim Components(ComponentCount) 
 	Dim Component as Component
+	Dim coef as Integer : coef = 1
+	
+	If Simulation.FormType = "CUPCAKE" Then 
+		coef = Simulation.PersonCount
+	End If
 	
 	For ComponentIdx = 0 to ComponentCount
-		With Simulation.Cakes(0).Components(ComponentIdx) 
+		With zeCake.Components(ComponentIdx) 
 			Component = new Component
-			Component.	Label = .Label
-			Component.	Quantity = .Quantity 
-			Component.	Unit = .Unit 
-			Component.Price = .Price 
+			Component.Label = .Label
+			Component.Quantity = .Quantity * coef
+			Component.Unit = .Unit 
+			Component.Price = .Price * coef 
 			Components(ComponentIdx) = Component
 		End With
 	Next
@@ -95,7 +102,7 @@ Sub UpdateShoppingBasket(Simulation as CakeSimulation, ShoppingList as ShoppingL
 	If CakeCount > 0	 Then
 		For CakeIdx = 1 to CakeCount
 			For ComponentIdx = 0 to ComponentCount
-				Components(ComponentIdx).	Quantity = Components(ComponentIdx).Quantity + Simulation.Cakes(CakeIdx).Components(ComponentIdx).Quantity 
+				Components(ComponentIdx).Quantity = Components(ComponentIdx).Quantity + Simulation.Cakes(CakeIdx).Components(ComponentIdx).Quantity 
 				Components(ComponentIdx).Price = Components(ComponentIdx).Price + Simulation.Cakes(CakeIdx).Components(ComponentIdx).Price 
 			Next
 		Next
@@ -168,12 +175,16 @@ End Function
 Public Function GetCakeVolume(oCake as Cake) as Double 
 
 	Dim Volume as Double
-	If oCake.FormType = "ROND" Then
-		Volume = PI() * oCake.Diameter * oCake.Diameter * oCake.Height / 4
+	If oCake.FormType = "CUPCAKE" Then
+		Volume = 147.25
 	Else 
-		Volume = oCake.Diameter * oCake.Diameter *  oCake.Height
+		If oCake.FormType = "ROND" Then
+			Volume = PI() * oCake.Diameter * oCake.Diameter * oCake.Height / 4
+		Else 
+			Volume = oCake.Diameter * oCake.Diameter *  oCake.Height
+		End If
 	End If
-	
+		
 	GetCakeVolume = Volume
 
 End Function
@@ -230,33 +241,44 @@ Sub ShowCakesSimulation
 	Vulling3 = MainSheet.getCellRangeByName("VULLING3").String
 	Bekleding = MainSheet.getCellRangeByName("BEKLEDING").String
 	Afsmeren = MainSheet.getCellRangeByName("AFSMEREN").String
+	
+	ResultTable = MainSheet.getCellRangeByName("SAMENSTELLING")
+	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 
 	ResultTable = MainSheet.getCellRangeByName("SIMULATIONS")
 	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 	ResultTableRange = ResultTable.DataArray
 		
-	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName, Vulling1, Vulling2, Vulling3, Afsmeren, Bekleding)
+	If FormType = "CUPCAKE" Then
 	
-	Dim SimulationIdx, SimulationCount As Integer
-	SimulationCount = UBound(CakeSimulations)
-	SimulationIdx = 0
+		ShowShoppingList()		
 	
-
-	For SimulationIdx = 0 to SimulationCount
-		ResultTableRange(0)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).ID 
-		ResultTableRange(1)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).Height & " cm"
-		ResultTableRange(2)(SimulationIdx) = "# " & GetSimulationPersonCount(CakeSimulations(SimulationIdx))
-		ResultTableRange(3)(SimulationIdx) = GetSimulationPrice(CakeSimulations(SimulationIdx))
-				
-		Dim CakeCount, CakeIdx as Integer
-		CakeCount = UBound(CakeSimulations(SimulationIdx).Cakes)
-		For CakeIdx = 0 to CakeCount
-			ResultTableRange(CakeIdx+5)(SimulationIdx) = CakeSimulations(SimulationIdx).Cakes(CakeIdx).Diameter
+	Else 
+	
+		DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName, Vulling1, Vulling2, Vulling3, Afsmeren, Bekleding)
+		
+		Dim SimulationIdx, SimulationCount As Integer
+		SimulationCount = UBound(CakeSimulations)
+		SimulationIdx = 0
+		
+	
+		For SimulationIdx = 0 to SimulationCount
+			ResultTableRange(0)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).ID 
+			ResultTableRange(1)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).Height & " cm"
+			ResultTableRange(2)(SimulationIdx) = "# " & GetSimulationPersonCount(CakeSimulations(SimulationIdx))
+			ResultTableRange(3)(SimulationIdx) = GetSimulationPrice(CakeSimulations(SimulationIdx))
+					
+			Dim CakeCount, CakeIdx as Integer
+			CakeCount = UBound(CakeSimulations(SimulationIdx).Cakes)
+			For CakeIdx = 0 to CakeCount
+				ResultTableRange(CakeIdx+5)(SimulationIdx) = CakeSimulations(SimulationIdx).Cakes(CakeIdx).Diameter
+			Next
+					
 		Next
-				
-	Next
-
-	ResultTable.DataArray = ResultTableRange
+	
+		ResultTable.DataArray = ResultTableRange
+		
+	End If
 
 End Sub
 
@@ -332,7 +354,7 @@ Function DoGetFillings(Name as String)
 		Component.Quantity =FillingSheetData(RowIdx)(1)
 		Component.Price = FillingSheetData(RowIdx)(2)
 		Component.Density = FillingSheetData(RowIdx)(3)
-		Component.	Unit = "g"
+		Component.Unit = "g"
 		
 		Components(RowIdx) = Component
 		RowIdx = RowIdx + 1
@@ -427,6 +449,8 @@ Sub FillCompositionTable()
 	
 	ResultTable.DataArray = ResultTableRange
 
+	ShowShoppingList()	
+	
 End Sub
 
 
@@ -478,14 +502,14 @@ Sub ShowShoppingList()
 			Dim x as Integer : x = CakeIdx * (ProductCount + 6)
 			
     		ResultTableRange(x)(0) = "Cake D: " & .Diameter & " / H: " & .Height 
-    		ResultTable.Rows(x).charWeight = com.sun.star.awt.FontWeight.BOLD
+    		' ResultTable.Rows(x).charWeight = com.sun.star.awt.FontWeight.BOLD
 
     		ResultTableRange(x+2)(0) = "Product"
     		ResultTableRange(x+2)(2) = "Hoeveelheid"
     		ResultTableRange(x+2)(3) = "Eenheid"
     		ResultTableRange(x+2)(4) = "Prijs"
     		
-    		ResultTable.Rows(x+2).charWeight = com.sun.star.awt.FontWeight.BOLD
+    		' ResultTable.Rows(x+2).charWeight = com.sun.star.awt.FontWeight.BOLD
 		    		    		
     		For ProductIdx = 0 to ProductCount
 	    		With CakeSimulation.Cakes(CakeIdx).Components(ProductIdx)
@@ -573,17 +597,22 @@ Sub DoCalcSimulations(CakeSimulations, FormType as String, AskedPersonCount as I
 			Simulation.ID = SimulationIdx
 			arCakeSimulations(SimulationIdx) = Simulation
 		End If
-		
-		CoefIdx = CoefIdx +1
-		Dim maxIdx as Integer
-		maxIdx = UBound(Coefs)
-		If CoefIdx > maxIdx	 Then
-			CoefIdx = 0
-			HeightIdx = HeightIdx + 1
+			
+		If FormType = "CUPCAKE" Then
+			Continue = False
+		Else
+			CoefIdx = CoefIdx +1
+			Dim maxIdx as Integer
+			maxIdx = UBound(Coefs)
+			If CoefIdx > maxIdx	 Then
+				CoefIdx = 0
+				HeightIdx = HeightIdx + 1
+			End If
+			
+			maxIdx = UBound(Heights)
+			Continue = HeightIdx  <= maxIdx
 		End If
 		
-		maxIdx = UBound(Heights)
-		Continue = HeightIdx  <= maxIdx
 	Loop
 
 	If SimulationIdx > -1 Then
@@ -602,21 +631,38 @@ End Sub
 
 Sub DoCalcSimulation(CakeSimulation)
 
- 	Dim Cakes()
- 	
-	DoCalcCakeDiameters(Cakes, CakeSimulation.FormType, CakeSimulation.Height,  CakeSimulation.PersonCount, CakeSimulation.Coef)
-	
-	Dim CakesCount as Integer
-	CakesCount = UBound(Cakes)
-	If  CakesCount > -1 Then 
-		CakeSimulation.Cakes = Cakes
+	If CakeSimulation.FormType = "CUPCAKE" Then
 
-		Dim CakeIdx as Integer
-		For CakeIdx = 0 to CakesCount 
-			DoCalcCakeComposition(Cakes(CakeIdx), CakeSimulation)
-		Next
-	End If
-			
+	    Dim aCake as Cake
+
+		aCake = New Cake
+	    aCake.FormType = CakeSimulation.FormType
+		
+		Dim arCakes(0)
+		arCakes(0) = aCake
+		
+		CakeSimulation.Cakes = arCakes
+		DoCalcCakeComposition(aCake, CakeSimulation)
+		
+	Else  
+
+	 	Dim Cakes()
+	 	
+		DoCalcCakeDiameters(Cakes, CakeSimulation.FormType, CakeSimulation.Height,  CakeSimulation.PersonCount, CakeSimulation.Coef)
+		
+		Dim CakesCount as Integer
+		CakesCount = UBound(Cakes)
+		If  CakesCount > -1 Then 
+			CakeSimulation.Cakes = Cakes
+	
+			Dim CakeIdx as Integer
+			For CakeIdx = 0 to CakesCount 
+				DoCalcCakeComposition(Cakes(CakeIdx), CakeSimulation)
+			Next
+		End If
+
+	End If	
+
 End Sub
 
 Rem Search composition of each cake and fill in a table below result table
@@ -823,5 +869,4 @@ Sub DoCalcCakeDiameters(Cakes(), FormType as String, Height as Integer,  AskedPe
 	End If	
 	
 End Sub
-
 
