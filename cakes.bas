@@ -175,14 +175,10 @@ End Function
 Public Function GetCakeVolume(oCake as Cake) as Double 
 
 	Dim Volume as Double
-	If oCake.FormType = "CUPCAKE" Then
-		Volume = 147.25
+	If oCake.FormType = "ROND" OR oCake.FormType = "CUPCAKE" Then
+		Volume = PI() * oCake.Diameter * oCake.Diameter * oCake.Height / 4
 	Else 
-		If oCake.FormType = "ROND" Then
-			Volume = PI() * oCake.Diameter * oCake.Diameter * oCake.Height / 4
-		Else 
-			Volume = oCake.Diameter * oCake.Diameter *  oCake.Height
-		End If
+		Volume = oCake.Diameter * oCake.Diameter *  oCake.Height
 	End If
 		
 	GetCakeVolume = Volume
@@ -193,7 +189,8 @@ End Function
 Public Function GetCakeTopSurface(oCake as Cake) as Double 
 
 	Dim Surface as Double
-	If oCake.FormType = "ROND" Then
+
+	If oCake.FormType = "ROND" OR oCake.FormType = "CUPCAKE" Then
 		Surface = PI() * oCake.Diameter * oCake.Diameter / 4 
 	Else 
 		Surface = oCake.Diameter * oCake.Diameter 
@@ -207,7 +204,7 @@ End Function
 Public Function GetCakeOveralSurface(oCake as Cake) as Double 
 
 	Dim Surface as Double
-	If oCake.FormType = "ROND" Then
+	If oCake.FormType = "ROND" OR oCake.FormType = "CUPCAKE" Then
 		Surface = PI() * oCake.Diameter * oCake.Diameter / 4 + PI() * oCake.Diameter * oCake.Height
 	Else 
 		Surface = oCake.Diameter * oCake.Diameter + 4 *  oCake.Diameter * oCake.Height
@@ -249,36 +246,28 @@ Sub ShowCakesSimulation
 	ResultTable.clearContents(com.sun.star.sheet.CellFlags.STRING+com.sun.star.sheet.CellFlags.VALUE)
 	ResultTableRange = ResultTable.DataArray
 		
-	If FormType = "CUPCAKE" Then
+	DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName, Vulling1, Vulling2, Vulling3, Afsmeren, Bekleding)
 	
-		ShowShoppingList()		
+	Dim SimulationIdx, SimulationCount As Integer
+	SimulationCount = UBound(CakeSimulations)
+	SimulationIdx = 0
 	
-	Else 
-	
-		DoCalcSimulations(CakeSimulations, FormType, AskedPersonCount, RecipeName, Vulling1, Vulling2, Vulling3, Afsmeren, Bekleding)
-		
-		Dim SimulationIdx, SimulationCount As Integer
-		SimulationCount = UBound(CakeSimulations)
-		SimulationIdx = 0
-		
-	
-		For SimulationIdx = 0 to SimulationCount
-			ResultTableRange(0)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).ID 
-			ResultTableRange(1)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).Height & " cm"
-			ResultTableRange(2)(SimulationIdx) = "# " & GetSimulationPersonCount(CakeSimulations(SimulationIdx))
-			ResultTableRange(3)(SimulationIdx) = GetSimulationPrice(CakeSimulations(SimulationIdx))
-					
-			Dim CakeCount, CakeIdx as Integer
-			CakeCount = UBound(CakeSimulations(SimulationIdx).Cakes)
-			For CakeIdx = 0 to CakeCount
-				ResultTableRange(CakeIdx+5)(SimulationIdx) = CakeSimulations(SimulationIdx).Cakes(CakeIdx).Diameter
-			Next
-					
+
+	For SimulationIdx = 0 to SimulationCount
+		ResultTableRange(0)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).ID 
+		ResultTableRange(1)(SimulationIdx) = "" & CakeSimulations(SimulationIdx).Height & " cm"
+		ResultTableRange(2)(SimulationIdx) = "# " & GetSimulationPersonCount(CakeSimulations(SimulationIdx))
+		ResultTableRange(3)(SimulationIdx) = GetSimulationPrice(CakeSimulations(SimulationIdx))
+				
+		Dim CakeCount, CakeIdx as Integer
+		CakeCount = UBound(CakeSimulations(SimulationIdx).Cakes)
+		For CakeIdx = 0 to CakeCount
+			ResultTableRange(CakeIdx+5)(SimulationIdx) = CakeSimulations(SimulationIdx).Cakes(CakeIdx).Diameter
 		Next
-	
-		ResultTable.DataArray = ResultTableRange
-		
-	End If
+				
+	Next
+
+	ResultTable.DataArray = ResultTableRange
 
 End Sub
 
@@ -637,6 +626,9 @@ Sub DoCalcSimulation(CakeSimulation)
 
 		aCake = New Cake
 	    aCake.FormType = CakeSimulation.FormType
+	    aCake.Diameter = 7.78 '4.25
+	    aCake.Height = 3.10 ' 10.38	    
+	    aCake.PersonCount = 1
 		
 		Dim arCakes(0)
 		arCakes(0) = aCake
@@ -707,6 +699,7 @@ Sub DoCalcCakeComposition(Cake, Simulation as Simulation)
 		oComponents(i) = Component
 	Next
 
+
 	' Fill in all values found in SAMENSTELLING
 	Dim FillingRange as Object
 	Dim FillingRangeRangeArray
@@ -730,7 +723,7 @@ Sub DoCalcCakeComposition(Cake, Simulation as Simulation)
 	If found Then
 		Dim Components
 		Dim Surface as Double
-
+	
 		Components = GetFillings("Vulling")
 		Surface = GetCakeTopSurface(Cake)
 		' Filling 
@@ -757,9 +750,8 @@ Sub DoCalcCakeComposition(Cake, Simulation as Simulation)
 			ProductCount = ProductCount + 1
 			oComponents(ProductCount) =  GetFilling(Components, FillingRangeRangeArray(RowIdx)(I), Surface)
 		End If
-
 	End If
-
+		
 	Dim CakeComponents(ProductCount) 
 	For I = 0 to ProductCount
 		CakeComponents(I) = oComponents(I)
@@ -869,4 +861,5 @@ Sub DoCalcCakeDiameters(Cakes(), FormType as String, Height as Integer,  AskedPe
 	End If	
 	
 End Sub
+
 
